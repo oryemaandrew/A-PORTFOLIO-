@@ -1,480 +1,170 @@
-// ============ TYPED TEXT EFFECT ============
-const words = ["build things.", "write code.", "solve problems.", "create experiences."];
-let wordIndex = 0;
-let charIndex = 0;
-let isDeleting = false;
-const typedElement = document.getElementById("typed");
+const themeToggle = document.getElementById("navThemeToggle");
+const themePreference = window.matchMedia("(prefers-color-scheme: light)");
 
-function typeEffect() {
-    const currentWord = words[wordIndex];
-    
-    if (isDeleting) {
-        typedElement.textContent = currentWord.substring(0, charIndex - 1);
-        charIndex--;
-    } else {
-        typedElement.textContent = currentWord.substring(0, charIndex + 1);
-        charIndex++;
+function applyTheme(theme, persist = false) {
+    const isLight = theme === "light";
+    document.body.classList.toggle("light-theme", isLight);
+
+    if (themeToggle) {
+        themeToggle.textContent = isLight ? "Dark" : "Light";
     }
-    
-    if (!isDeleting && charIndex === currentWord.length) {
-        isDeleting = true;
-        setTimeout(typeEffect, 2000);
-        return;
+    if (themeToggle) {
+        themeToggle.setAttribute("aria-label", `Switch to ${isLight ? "dark" : "light"} theme`);
     }
-    
-    if (isDeleting && charIndex === 0) {
-        isDeleting = false;
-        wordIndex = (wordIndex + 1) % words.length;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+        "content",
+        isLight ? "#f5f8f7" : "#10171b"
+    );
+
+    if (persist) {
+        localStorage.setItem("portfolio-theme", theme);
     }
-    
-    const speed = isDeleting ? 100 : 150;
-    setTimeout(typeEffect, speed);
 }
 
-// Start typing effect
-if (typedElement) typeEffect();
+const savedTheme = localStorage.getItem("portfolio-theme");
+applyTheme(savedTheme || (themePreference.matches ? "light" : "dark"));
 
-// ============ COUNTER ANIMATION FOR STATS ============
-const statNumbers = document.querySelectorAll(".stat-number");
-let animated = false;
+themeToggle?.addEventListener("click", () => {
+    const nextTheme = document.body.classList.contains("light-theme") ? "dark" : "light";
+    applyTheme(nextTheme, true);
+});
 
-function animateNumbers() {
-    if (animated) return;
-    
-    statNumbers.forEach(stat => {
-        const target = parseInt(stat.getAttribute("data-target"));
-        let current = 0;
-        const increment = target / 50;
-        
-        const updateCounter = () => {
-            current += increment;
-            if (current < target) {
-                stat.textContent = Math.ceil(current);
-                requestAnimationFrame(updateCounter);
-            } else {
-                stat.textContent = target;
-            }
-        };
-        
-        updateCounter();
-    });
-    
-    animated = true;
-}
+themePreference.addEventListener("change", (event) => {
+    if (!localStorage.getItem("portfolio-theme")) {
+        applyTheme(event.matches ? "light" : "dark");
+    }
+});
 
-// Intersection Observer for Stats
-const aboutSection = document.querySelector("#about");
-if (aboutSection) {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                animateNumbers();
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.5 });
-    
-    observer.observe(aboutSection);
-}
-
-// ============ MOBILE MENU TOGGLE ============
-const hamburger = document.querySelector(".hamburger");
+const menuButton = document.querySelector(".hamburger");
 const navLinks = document.querySelector(".nav-links");
 
-if (hamburger) {
-    hamburger.addEventListener("click", () => {
-        hamburger.classList.toggle("active");
-        navLinks.classList.toggle("active");
+function setMenuOpen(isOpen) {
+    menuButton?.classList.toggle("active", isOpen);
+    navLinks?.classList.toggle("active", isOpen);
+    menuButton?.setAttribute("aria-expanded", String(isOpen));
+    menuButton?.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
+}
+
+menuButton?.addEventListener("click", () => {
+    setMenuOpen(menuButton.getAttribute("aria-expanded") !== "true");
+});
+
+navLinks?.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => setMenuOpen(false));
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        setMenuOpen(false);
+    }
+});
+
+const sectionLinks = new Map(
+    [...document.querySelectorAll(".nav-item[href^='#']")].map((link) => [
+        link.getAttribute("href").slice(1),
+        link
+    ])
+);
+
+if ("IntersectionObserver" in window) {
+    const sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            const link = sectionLinks.get(entry.target.id);
+            if (link && entry.isIntersecting) {
+                sectionLinks.forEach((item) => item.classList.remove("active"));
+                link.classList.add("active");
+            }
+        });
+    }, { rootMargin: "-25% 0px -60% 0px" });
+
+    document.querySelectorAll("main section[id]").forEach((section) => {
+        sectionObserver.observe(section);
     });
 }
 
-// Close mobile menu when clicking a link
-document.querySelectorAll(".nav-links .nav-item").forEach(link => {
-    link.addEventListener("click", () => {
-        hamburger.classList.remove("active");
-        navLinks.classList.remove("active");
-    });
-});
+const scrollProgress = document.querySelector(".scroll-progress");
+const backToTop = document.getElementById("backToTop");
+let scrollableHeight = 0;
+let scrollUpdatePending = false;
 
-// ============ SMOOTH SCROLL FOR NAVIGATION ============
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener("click", function(e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute("href"));
-        if (target) {
-            target.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-            });
-        }
-    });
-});
+function updateScrollUI() {
+    const progress = scrollableHeight > 0 ? window.scrollY / scrollableHeight * 100 : 0;
 
-// ============ ACTIVE NAVIGATION HIGHLIGHT ON SCROLL ============
-function updateActiveNav() {
-    const sections = document.querySelectorAll(".section");
-    const navItems = document.querySelectorAll(".nav-item");
-    
-    let current = "";
-    sections.forEach(section => {
-        const sectionTop = section.offsetTop;
-        const sectionHeight = section.clientHeight;
-        if (window.scrollY >= sectionTop - 200) {
-            current = section.getAttribute("id");
-        }
-    });
-    
-    navItems.forEach(item => {
-        item.classList.remove("active");
-        if (item.getAttribute("href") === `#${current}`) {
-            item.classList.add("active");
-        }
-    });
-}
-
-// ============ SCROLL EFFECTS (Progress & Back-to-Top) ============
-function handleScrollEffects() {
-    const scrollProgress = document.querySelector(".scroll-progress");
-    const backToTop = document.getElementById("backToTop");
-    
-    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    const scrolled = (winScroll / height) * 100;
-    
     if (scrollProgress) {
-        scrollProgress.style.width = scrolled + "%";
+        scrollProgress.style.width = `${progress}%`;
     }
-    
-    if (backToTop) {
-        if (winScroll > 300) {
-            backToTop.classList.add("show");
-        } else {
-            backToTop.classList.remove("show");
-        }
-    }
+    backToTop?.classList.toggle("show", window.scrollY > 500);
+}
+
+function measureScrollRange() {
+    scrollableHeight = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    updateScrollUI();
 }
 
 window.addEventListener("scroll", () => {
-    updateActiveNav();
-    handleScrollEffects();
-});
-updateActiveNav();
-handleScrollEffects();
-
-const backToTopBtn = document.getElementById("backToTop");
-if (backToTopBtn) {
-    backToTopBtn.addEventListener("click", () => {
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
+    if (!scrollUpdatePending) {
+        scrollUpdatePending = true;
+        window.requestAnimationFrame(() => {
+            updateScrollUI();
+            scrollUpdatePending = false;
         });
+    }
+}, { passive: true });
+window.addEventListener("resize", measureScrollRange);
+if ("ResizeObserver" in window) {
+    new ResizeObserver(measureScrollRange).observe(document.body);
+}
+measureScrollRange();
+
+backToTop?.addEventListener("click", () => {
+    window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
     });
+});
+
+const year = document.getElementById("currentYear");
+if (year) {
+    year.textContent = String(new Date().getFullYear());
 }
 
-// ============ FORM SUBMISSION WITH FORMSPREE ============
 const contactForm = document.querySelector(".contact-form");
 const formStatus = document.getElementById("formStatus");
 
-if (contactForm) {
-    contactForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        
-        const name = document.getElementById("name").value.trim();
-        const email = document.getElementById("email").value.trim();
-        const message = document.getElementById("message").value.trim();
-        
-        // Validation
-        if (!name || !email || !message) {
-            showFormStatus("Please fill in all fields", "error");
-            return;
-        }
-        
-        if (!isValidEmail(email)) {
-            showFormStatus("Please enter a valid email address", "error");
-            return;
-        }
-        
-        // Show sending status
-        showFormStatus("Sending message...", "success");
-        
-        // Send to Formspree
-        const formData = new FormData(contactForm);
-        
-        try {
-            const response = await fetch(contactForm.action, {
-                method: "POST",
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                showFormStatus("✅ Message sent successfully! I'll get back to you soon.", "success");
-                contactForm.reset(); // Clear the form
-                
-                // Clear success message after 5 seconds
-                setTimeout(() => {
-                    formStatus.style.display = "none";
-                }, 5000);
-            } else {
-                const errorData = await response.json();
-                console.error("Formspree error:", errorData);
-                showFormStatus("❌ Something went wrong. Please try again.", "error");
-            }
-        } catch (error) {
-            console.error("Network error:", error);
-            showFormStatus("❌ Network error. Please check your connection.", "error");
-        }
-    });
-}
-
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
 function showFormStatus(message, type) {
+    if (!formStatus) return;
     formStatus.textContent = message;
     formStatus.className = `form-status ${type}`;
-    formStatus.style.display = "block";
-    
-    // Auto-hide after 5 seconds for success/error messages
-    if (type !== "success" || message !== "Sending message...") {
-        setTimeout(() => {
-            if (formStatus.style.display === "block") {
-                formStatus.style.display = "none";
-            }
-        }, 5000);
-    }
 }
 
-// ============ SETTINGS SYSTEM ============
+contactForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-// Load saved settings from localStorage
-function loadSettings() {
-    // Theme
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    
-    // Font size
-    const savedFontSize = localStorage.getItem('fontSize') || 'medium';
-    setFontSize(savedFontSize);
-    
-    // Animations
-    const animationsEnabled = localStorage.getItem('animations') !== 'false';
-    const animationToggle = document.getElementById('animationToggle');
-    if (animationToggle) {
-        animationToggle.checked = animationsEnabled;
-    }
-    if (!animationsEnabled) {
-        document.body.classList.add('reduce-motion');
-    }
-    
-    // Accent color
-    const savedColor = localStorage.getItem('accentColor');
-    if (savedColor) {
-        document.documentElement.style.setProperty('--accent', savedColor);
-        document.documentElement.style.setProperty('--accent-dark', savedColor);
-        const accentColorPicker = document.getElementById('accentColor');
-        if (accentColorPicker) {
-            accentColorPicker.value = savedColor;
+    if (!contactForm.reportValidity()) return;
+
+    const submitButton = contactForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    showFormStatus("Sending your message…", "pending");
+
+    try {
+        const response = await fetch(contactForm.action, {
+            method: "POST",
+            body: new FormData(contactForm),
+            headers: { Accept: "application/json" }
+        });
+
+        if (!response.ok) {
+            console.error(`Contact form submission failed with status ${response.status}.`);
+            showFormStatus("Your message could not be sent. Please email me directly instead.", "error");
+            return;
         }
-    }
-}
 
-// Set theme
-function setTheme(theme) {
-    const body = document.body;
-    const themeBtns = document.querySelectorAll('.theme-btn');
-    
-    if (theme === 'light') {
-        body.classList.add('light-theme');
-        body.classList.remove('dark-theme');
-    } else if (theme === 'dark') {
-        body.classList.remove('light-theme');
-        body.classList.add('dark-theme');
-    } else if (theme === 'auto') {
-        // Auto: follow system preference
-        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (systemDark) {
-            body.classList.remove('light-theme');
-            body.classList.add('dark-theme');
-        } else {
-            body.classList.add('light-theme');
-            body.classList.remove('dark-theme');
-        }
-    }
-    
-    // Update active button
-    themeBtns.forEach(btn => {
-        if (btn.dataset.theme === theme) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    
-    // Update navbar icon
-    const navIcon = document.querySelector('#navThemeToggle i');
-    if (navIcon) {
-        if (theme === 'light' || (theme === 'auto' && !window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            navIcon.className = 'fas fa-sun';
-        } else {
-            navIcon.className = 'fas fa-moon';
-        }
-    }
-    
-    localStorage.setItem('theme', theme);
-}
-
-// Set font size
-function setFontSize(size) {
-    const body = document.body;
-    body.classList.remove('font-small', 'font-large');
-    
-    if (size === 'small') {
-        body.classList.add('font-small');
-    } else if (size === 'large') {
-        body.classList.add('font-large');
-    }
-    // medium = no class
-    
-    localStorage.setItem('fontSize', size);
-}
-
-// Set accent color
-function setAccentColor(color) {
-    document.documentElement.style.setProperty('--accent', color);
-    document.documentElement.style.setProperty('--accent-dark', color);
-    localStorage.setItem('accentColor', color);
-}
-
-// Reset all settings
-function resetAllSettings() {
-    localStorage.removeItem('theme');
-    localStorage.removeItem('fontSize');
-    localStorage.removeItem('animations');
-    localStorage.removeItem('accentColor');
-    
-    // Reset to defaults
-    setTheme('dark');
-    setFontSize('medium');
-    const animationToggle = document.getElementById('animationToggle');
-    if (animationToggle) {
-        animationToggle.checked = true;
-    }
-    document.body.classList.remove('reduce-motion');
-    setAccentColor('#00d4ff');
-    const accentColorPicker = document.getElementById('accentColor');
-    if (accentColorPicker) {
-        accentColorPicker.value = '#00d4ff';
-    }
-    
-    // Show confirmation
-    const statusMsg = document.createElement('div');
-    statusMsg.textContent = '✓ All settings reset to default!';
-    statusMsg.style.position = 'fixed';
-    statusMsg.style.bottom = '20px';
-    statusMsg.style.right = '20px';
-    statusMsg.style.background = 'var(--accent)';
-    statusMsg.style.color = 'var(--bg-primary)';
-    statusMsg.style.padding = '10px 20px';
-    statusMsg.style.borderRadius = '10px';
-    statusMsg.style.zIndex = '9999';
-    document.body.appendChild(statusMsg);
-    setTimeout(() => statusMsg.remove(), 2000);
-}
-
-// Initialize settings event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    loadSettings();
-    
-    // Theme buttons
-    document.querySelectorAll('.theme-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            setTheme(btn.dataset.theme);
-        });
-    });
-    
-    // Navbar Theme Toggle
-    const navThemeToggle = document.getElementById('navThemeToggle');
-    if (navThemeToggle) {
-        navThemeToggle.addEventListener('click', () => {
-            const isLight = document.body.classList.contains('light-theme');
-            setTheme(isLight ? 'dark' : 'light');
-        });
-    }
-    
-    // Font size buttons
-    document.querySelectorAll('.font-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (btn.dataset.size === 'reset') {
-                setFontSize('medium');
-            } else {
-                setFontSize(btn.dataset.size);
-            }
-        });
-    });
-    
-    // Animation toggle
-    const animationToggle = document.getElementById('animationToggle');
-    if (animationToggle) {
-        animationToggle.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                document.body.classList.remove('reduce-motion');
-                localStorage.setItem('animations', 'true');
-            } else {
-                document.body.classList.add('reduce-motion');
-                localStorage.setItem('animations', 'false');
-            }
-        });
-    }
-    
-    // Color picker
-    const accentColorPicker = document.getElementById('accentColor');
-    if (accentColorPicker) {
-        accentColorPicker.addEventListener('input', (e) => {
-            setAccentColor(e.target.value);
-        });
-    }
-    
-    // Reset color button
-    const resetColorBtn = document.getElementById('resetColor');
-    if (resetColorBtn) {
-        resetColorBtn.addEventListener('click', () => {
-            setAccentColor('#00d4ff');
-            if (accentColorPicker) {
-                accentColorPicker.value = '#00d4ff';
-            }
-        });
-    }
-    
-    // Reset all settings button
-    const resetAllBtn = document.getElementById('resetAllSettings');
-    if (resetAllBtn) {
-        resetAllBtn.addEventListener('click', resetAllSettings);
-    }
-    
-    // Listen to system theme changes (for auto mode)
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        const currentTheme = localStorage.getItem('theme');
-        if (currentTheme === 'auto') {
-            setTheme('auto');
-        }
-    });
-});
-
-// Update color preview when accent changes
-const observerForColor = new MutationObserver(() => {
-    const preview = document.querySelector('.color-preview');
-    if (preview) {
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        preview.style.background = accent;
+        contactForm.reset();
+        showFormStatus("Thanks for reaching out. Your message has been sent.", "success");
+    } catch (error) {
+        console.error("Contact form network error:", error);
+        showFormStatus("A network error stopped your message from sending. Please email me directly.", "error");
+    } finally {
+        if (submitButton) submitButton.disabled = false;
     }
 });
-observerForColor.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-
-// ============ CONSOLE GREETING (just for fun) ============
-console.log("%c🚀 Personal website loaded! Built with vanilla HTML/CSS/JS + Settings panel", "color: #00d4ff; font-size: 16px; font-weight: bold;");
-console.log("%c💡 Tip: Check out the Settings page to customize your experience!", "color: #a0a0a0; font-size: 12px;");

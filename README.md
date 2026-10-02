@@ -1,20 +1,20 @@
-﻿# A-PORTFOLIO-
-My Web Developer Portfolio
+# Oryema Andrew — Portfolio
 
-Welcome to my personal portfolio website!
+A responsive personal portfolio and services site built with HTML, CSS, and JavaScript.
 
-About This Project
+## Pages
 
-I built this portfolio to showcase my skills as a full-stack web developer. It features a clean design, dark/light theme, and interactive project filtering.
+- `index.html` — introduction, skills, featured project, and contact form.
+- `sales.html` — services, project enquiry information, and contact links.
 
-Features
+## Featured project
 
-Project Filter - Filter projects by Frontend/Backend category
-Contact Form - Send me messages via EmailJS
-Responsive Design - Works on all devices
-Technologies
+The portfolio currently highlights [E-COMMERCE-WEB-APP](https://github.com/oryemaandrew/E-COMMERCE-WEB-APP), the project I consider ready to showcase. Other repositories are not currently presented as portfolio highlights.
 
-HTML5
-CSS3 (CSS Variables, Flexbox, Grid)
-JavaScript (DOM manipulation, events)
-formspree.
+## Contact form
+
+The portfolio form posts to Formspree. Update the form action in `index.html` if the Formspree endpoint changes. Visitors can also email directly.
+
+## Run locally
+
+Open `index.html` in a browser, or serve the project directory with any static HTTP server. No build step or package installation is required.
